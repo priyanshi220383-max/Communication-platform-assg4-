@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head><title>Secure Chat</title></head>
+<body>
+  <h3>Login</h3>
+  <input id="email" placeholder="email">
+  <input id="password" type="password" placeholder="password">
+  <button onclick="login()">Login</button>
+
+  <h3>Chat (room: general)</h3>
+  <div id="log" style="border:1px solid #999;height:200px;overflow:auto;padding:5px"></div>
+  <input id="msg" placeholder="message">
+  <button onclick="send()">Send</button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    let socket;
+    const log = (t) => { document.getElementById('log').innerHTML += `<div>${t}</div>`; };
+
+    async function login() {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value
+        })
+      });
+      const data = await res.json();
+      if (!data.token) return log('Login failed');
+
+      socket = io({ auth: { token: data.token } });
+      socket.on('connect', () => { log('Connected'); socket.emit('joinRoom', 'general'); });
+      socket.on('system', log);
+      socket.on('chatMessage', (m) => log(`<b>${m.user}</b>: ${m.message}`));
+      socket.on('connect_error', (e) => log('Error: ' + e.message));
+    }
+
+    function send() {
+      const input = document.getElementById('msg');
+      socket.emit('chatMessage', { room: 'general', message: input.value });
+      input.value = '';
+    }
+  </script>
+</body>
+</html>
